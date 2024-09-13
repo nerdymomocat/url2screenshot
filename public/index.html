@@ -30,7 +30,7 @@
             class="flex-grow p-2 border border-gray-300 shadow-md"
             placeholder="https://www.google.com"
           />
-          <button :disabled="loading" type="submit" class="bg-red-600 text-white px-4 py-2 shadow-md flex items-center">
+          <button :disabled="loading" type="submit" class="bg-red-600 text-white px-4 py-2 shadow-md flex items-center" data-umami-event="capture" :data-umami-event-url="inputUrl">
             <svg class="inline-block w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -214,6 +214,8 @@
           const selectedDevice = devices.value[resolution.value];
           const { width, height, scale, userAgent } = selectedDevice;
 
+          // window.umami && umami.track('url', { url: inputUrl.value });
+
           try {
             const response = await axios.post('/api/screenshot', {
               url: inputUrl.value,
@@ -265,6 +267,7 @@
       }
     }).mount('#app');
   </script>
+  <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="thinkerchan" data-description="Support me on Buy me a coffee!" data-message="" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
   <script defer src="https://tongji.linkroutes.com/script.js" data-website-id="191509ea-40d5-48a2-a8cf-b33f61260617"></script>
 </body>
 </html>
