@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       style.textContent = `
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC&display=swap');
         body, div, span, p, h1, h2, h3, h4, h5, h6, em, i {
-          font-family: 'Noto Sans SC', sans-serif;
+          font-family: system-ui, -apple-system,'Noto Sans SC'!important;
         }
       `;
       document.head.appendChild(style);
