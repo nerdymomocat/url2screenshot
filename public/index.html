@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screenshot Service</title>
+  <script src="https://cdn.tailwindcss.com/3.4.5"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+  <script src="devices.js"></script>
+</head>
+<body class="min-h-screen bg-gray-100 text-gray-900">
+  <div id="app">
+    <main class="container w-full md:w-4/5 mx-auto px-4 py-8">
+      <section class="text-center mb-12">
+        <h1 class="text-4xl font-bold mb-2 italic">URL To Picture</h1>
+      </section>
+
+      <form @submit.prevent="captureScreenshot" class="mb-8">
+        <div class="mb-4">
+          <h3 class="text-xl mb-2 text-center italic text-gray-500">Enter a URL and click the button to capture a screenshot!</h3>
+        </div>
+        <div class="flex">
+          <input
+            v-model="inputUrl"
+            type="text"
+            class="flex-grow p-2 border border-gray-300 shadow-md"
+            placeholder="https://www.google.com"
+          />
+          <button :disabled="loading" type="submit" class="bg-red-600 text-white px-4 py-2 shadow-md flex items-center">
+            <svg class="inline-block w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span>{{ loading ? 'Loading...' : 'Shot it!' }}</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="flex flex-col md:flex-row gap-8">
+        <browser-settings
+          v-model:full-page="fullPage"
+          v-model:resolution="resolution"
+          v-model:format="format"
+          v-model:selector="selector"
+          :devices="devices"
+        ></browser-settings>
+
+        <screenshot-preview
+          :loading="loading"
+          :screenshot-url="screenshotUrl"
+          :render-time="renderTime"
+        ></screenshot-preview>
+      </div>
+
+      <hr class="my-8" />
+
+      <feature-grid :features="additionalFeatures"></feature-grid>
+    </main>
+
+    <site-footer></site-footer>
+  </div>
+
+  <script>
+    const { createApp, ref, onUnmounted } = Vue;
+
+    // Component: BrowserSettings
+    const BrowserSettings = {
+      props: ['fullPage', 'resolution', 'format', 'selector', 'devices'],
+      emits: ['update:fullPage', 'update:resolution', 'update:format', 'update:selector'],
+      template: `
+        <div class="md:w-1/3 p-6 bg-white shadow-md">
+          <h3 class="text-2xl font-bold mb-4 text-gray-800">Browser Settings</h3>
+          <div class="space-y-6">
+            <div class="flex items-center">
+              <label for="fullPage" class="text-gray-700 font-semibold mr-2">Full Page:</label>
+              <input type="checkbox" :checked="fullPage" @input="$emit('update:fullPage', $event.target.checked)" class="mr-2 h-5 w-5 text-red-600 border-gray-300 rounded focus:ring-red-500" id="fullPage"/>
+            </div>
+            <div>
+              <label for="resolution" class="block mb-1 text-gray-700 font-semibold">Resolution:</label>
+              <select class="form-control w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" id="resolution" :value="resolution" @input="$emit('update:resolution', $event.target.value)">
+                <option v-for="(device, index) in devices" :key="index" :value="index">{{ device.device }}</option>
+              </select>
+            </div>
+            <div>
+              <label for="format" class="block mb-1 text-gray-700 font-semibold">Format:</label>
+              <select class="form-control w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" id="format" :value="format" @input="$emit('update:format', $event.target.value)">
+                <option value="jpeg">JPEG</option>
+                <option value="png">PNG</option>
+              </select>
+            </div>
+            <div>
+              <label for="selector" class="block mb-1 text-gray-700 font-semibold">Selectors (optional):</label>
+              <p class="text-gray-500 text-sm mb-2">if you want to hide some elements</p>
+              <input type="text" placeholder="like: tagName, .class, #id" :value="selector" @input="$emit('update:selector', $event.target.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"/>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    // Component: ScreenshotPreview
+    const ScreenshotPreview = {
+      props: ['loading', 'screenshotUrl', 'renderTime'],
+      template: `
+        <div class="md:w-2/3 bg-white shadow-md">
+          <div v-if="!loading" class="border border-gray-300 h-[500px] overflow-auto">
+            <img v-if="screenshotUrl" :src="screenshotUrl" alt="Screenshot" class="max-w-full" />
+            <div v-else class="flex justify-center items-center h-full">
+              <p class="text-gray-500">Oops! Try Again</p>
+            </div>
+          </div>
+          <div v-else class="flex justify-center items-center h-[500px]">
+            <div class="flex flex-col items-center">
+              <svg class="animate-spin h-10 w-10 text-red-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-gray-600"><span>{{ renderTime }} s</span></p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    // Component: FeatureGrid
+    const FeatureGrid = {
+      props: ['features'],
+      template: `
+        <div class="grid md:grid-cols-3 gap-8">
+          <div v-for="(feature, index) in features" :key="index" class="text-center">
+            <div class="mb-4" v-html="feature.icon"></div>
+            <h3 class="text-xl font-bold mb-2">{{ feature.title }}</h3>
+            <p class="break-words">{{feature.description}}</p>
+          </div>
+        </div>
+      `
+    };
+
+    // Component: SiteFooter
+    const SiteFooter = {
+      template: `
+        <footer class="bg-gray-800 text-white py-8">
+          <div class="container mx-auto px-4">
+            <div class="flex justify-center items-center">
+              <p class="italic"><a href="https://github.com/thinkerchan">&copy;thinkerchan</a></p>
+            </div>
+          </div>
+        </footer>
+      `
+    };
+
+    // Main app
+    createApp({
+      components: {
+        BrowserSettings,
+        ScreenshotPreview,
+        FeatureGrid,
+        SiteFooter
+      },
+      setup() {
+        const _url = 'https://en.wikipedia.org/'
+        const inputUrl = ref(_url);
+        const screenshotUrl = ref('./demo.jpeg');
+        const resolution = ref(0);
+        const selector = ref('');
+        const fullPage = ref(false);
+        const format = ref('jpeg');
+        const loading = ref(false);
+        const renderTime = ref(0);
+
+        const devices = ref(_devices); // Using _devices from devices.js
+
+        const additionalFeatures = [
+          {
+            icon: '<svg class="text-green-500 w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+            title: "Open Source",
+            description: "base on vercel + puppeteer + @sparticuz/chromium"
+          },
+          {
+            icon: '<svg class="text-blue-500 w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>',
+            title: "Multiple Devices Emulation",
+            description: "desktop, mobile, and tablet are supported"
+          },
+          {
+            icon: '<svg class="text-purple-500 w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>',
+            title: "Feel Free To Deploy On Vercel",
+            description: "you can deploy this project on vercel"
+          }
+        ];
+
+        let startTime;
+        let animationFrameId;
+
+        const updateRenderTime = () => {
+          if (loading.value) {
+            const currentTime = performance.now();
+            renderTime.value = parseFloat(((currentTime - startTime) / 1000).toFixed(1));
+            animationFrameId = requestAnimationFrame(updateRenderTime);
+          }
+        };
+
+        const captureScreenshot = async () => {
+          if (loading.value) return;
+
+          loading.value = true;
+          renderTime.value = 0;
+          startTime = performance.now();
+          updateRenderTime();
+
+          const selectedDevice = devices.value[resolution.value];
+          const { width, height, scale, userAgent } = selectedDevice;
+
+          try {
+            const response = await axios.post('/api/screenshot', {
+              url: inputUrl.value,
+              width,
+              height,
+              scale,
+              device: scale > 1 ? 'mobile' : 'desktop',
+              format: format.value,
+              selector: selector.value,
+              fullPage: fullPage.value,
+              userAgent,
+            });
+
+            const { img } = response.data;
+            if (img) {
+              screenshotUrl.value = img;
+            }
+          } catch (error) {
+            console.error('Error capturing screenshot:', error);
+
+            // 如果截图失败，提示失败
+            if(inputUrl.value !== _url){
+              screenshotUrl.value = ''
+            }
+
+          } finally {
+            loading.value = false;
+            cancelAnimationFrame(animationFrameId);
+          }
+        };
+
+        onUnmounted(() => {
+          cancelAnimationFrame(animationFrameId);
+        });
+
+        return {
+          inputUrl,
+          screenshotUrl,
+          additionalFeatures,
+          captureScreenshot,
+          resolution,
+          selector,
+          fullPage,
+          format,
+          devices,
+          loading,
+          renderTime
+        };
+      }
+    }).mount('#app');
+  </script>
+  <script defer src="https://tongji.linkroutes.com/script.js" data-website-id="191509ea-40d5-48a2-a8cf-b33f61260617"></script>
+</body>
+</html>
