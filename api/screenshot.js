@@ -4,10 +4,9 @@ import chromium from "@sparticuz/chromium";
 const timeOut = 60;
 const ENV = process.env;
 const isVercel = ENV.VERCEL_URL;
-const isVercelDev = ENV.NOW_REGION?.indexOf('dev') > -1;
+const isVercelProd = ENV.NOW_REGION === 'production';
 
 export const maxDuration = timeOut;
-
 function getDevChromPath() {
   const platform = process.platform;
   const chromePaths = {
@@ -41,22 +40,23 @@ export default async function handler(req, res) {
 
     browser = await puppeteer.launch({
       args: [
+        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--font-render-hinting=medium',
         '--force-color-profile=srgb',
-        '--disable-extensions',
-        '--disable-gpu',
-        '--no-zygote',
       ],
       defaultViewport: chromium.defaultViewport,
-      executablePath: (isVercel && !isVercelDev) ? await chromium.executablePath() : getDevChromPath(),
+      executablePath: (isVercel && isVercelProd) ? await chromium.executablePath() : getDevChromPath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
-    await page.setUserAgent(data.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+    if (data.userAgent) {
+      await page.setUserAgent(data.userAgent);
+    }
 
     await page.setViewport({
       width: parseInt(data.width) || 1920,
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     });
 
     await page.goto(data.url, {
-      waitUntil: ["networkidle2"],
+      waitUntil: ["networkidle0"],
       timeout: timeOut * 1000
     });
 
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
     await page.waitForFunction(() => document.fonts.ready);
 
     // 处理 data.selector
-    if (data.selector) {
+    if (!!data.selector) {
       const selectors = data.selector.split(',').map(s => s.trim());
       await page.evaluate((selectors) => {
         const selectorRegex = /^(?:[a-zA-Z][a-zA-Z0-9]*|[#.][_a-zA-Z][_a-zA-Z0-9-]*|#[_a-zA-Z][_a-zA-Z0-9-]*(?:\[[a-zA-Z][a-zA-Z0-9-]*(?:=["\'][^"\']*["\'])?\])*)((?:\s*[>,+~]\s*|\s+)(?:[a-zA-Z][a-zA-Z0-9]*|[#.][_a-zA-Z][_a-zA-Z0-9-]*|#[_a-zA-Z][_a-zA-Z0-9-]*(?:\[[a-zA-Z][a-zA-Z0-9-]*(?:=["\'][^"\']*["\'])?\])*))*$/;
@@ -115,13 +115,15 @@ export default async function handler(req, res) {
       code: 0,
       img: base64Prefix + screenshot.toString('base64'),
       duration: Date.now() - startTime,
-      msg: 'ok'
+      msg: 'ok',
+      // ENV
     });
   } catch (error) {
     res.status(500).json({
       error: "Error generating screenshot",
       msg: error.message,
-      data
+      data,
+      // ENV
     });
   } finally {
     if (browser !== null) {
