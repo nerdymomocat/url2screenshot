@@ -4,7 +4,7 @@ import chromium from "@sparticuz/chromium";
 const timeOut = 60;
 const ENV = process.env;
 const isVercel = ENV.VERCEL_URL;
-const isVercelProd = ENV.NOW_REGION === 'production';
+const isVercelProd = ENV.VERCEL_ENV === 'production';
 
 export const maxDuration = timeOut;
 function getDevChromPath() {
