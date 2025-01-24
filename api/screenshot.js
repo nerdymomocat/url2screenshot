@@ -27,6 +27,11 @@ export default async function handler(req, res) {
   }
 
   const data = req.body;
+  
+  // Add key validation
+  if (!process.env.KEY || data.key !== process.env.KEY) {
+    return res.status(401).json({ error: "Unauthorized - Invalid key" });
+  }
 
   const urlReg = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
   if (!urlReg.test(data.url)) {

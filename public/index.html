@@ -203,8 +203,20 @@
           }
         };
 
+        // Add function to get key from URL
+        const getKeyFromUrl = () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          return urlParams.get('key');
+        };
+
         const captureScreenshot = async () => {
           if (loading.value) return;
+
+          const key = getKeyFromUrl();
+          if (!key) {
+            alert('Missing authentication key');
+            return;
+          }
 
           loading.value = true;
           renderTime.value = 0;
@@ -214,10 +226,9 @@
           const selectedDevice = devices.value[resolution.value];
           const { width, height, scale, userAgent } = selectedDevice;
 
-          // window.umami && umami.track('url', { url: inputUrl.value });
-
           try {
             const response = await axios.post('/api/screenshot', {
+              key,  // Add key to the request
               url: inputUrl.value,
               width,
               height,
@@ -235,7 +246,9 @@
             }
           } catch (error) {
             console.error('Error capturing screenshot:', error);
-
+            if (error.response?.status === 401) {
+              alert('Invalid authentication key');
+            }
             // 如果截图失败，提示失败
             if(inputUrl.value !== _url){
               screenshotUrl.value = ''
